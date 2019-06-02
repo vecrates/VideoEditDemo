@@ -1,9 +1,7 @@
 package cn.vecrates.videoeditdemo.media.camera;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -14,18 +12,28 @@ import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
+import android.hardware.camera2.params.StreamConfigurationMap;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Message;
 import android.util.Log;
+import android.util.Size;
 import android.view.Surface;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+
+import androidx.annotation.NonNull;
+import cn.vecrates.videoeditdemo.util.ToastUtil;
 
 /**
  * @author Vecrates.
  * @describe
  */
-public class CameraController {
+public class CameraController implements Handler.Callback {
 
 	private final static String TAG = CameraController.class.getSimpleName();
 
@@ -36,10 +44,16 @@ public class CameraController {
 	private CameraManager cameraManager;
 	private String frontCameraId;
 	private String backCameraId;
+	private CameraCharacteristics characteristics;
 	private CameraDevice cameraDevice;
 	private CameraCaptureSession captureSession;
 
+	private SurfaceTexture surfaceTexture;
 	private Surface surface;
+
+	private HandlerThread thread;
+
+	private Handler handler;
 
 	private CameraController() {
 	}
@@ -48,10 +62,21 @@ public class CameraController {
 		return H.instance;
 	}
 
+	private void initThread() {
+		thread = new HandlerThread("cameraThread");
+		thread.start();
+		handler = new Handler(thread.getLooper(), this);
+	}
+
+	@Override
+	public boolean handleMessage(Message message) {
+		return true;
+	}
+
 	public void setupCamera(Context context) {
+		initThread();
 		cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
 		try {
-			CameraCharacteristics characteristics;
 			int facing;
 			for (String cameraId : cameraManager.getCameraIdList()) {
 				characteristics = cameraManager.getCameraCharacteristics(cameraId);
@@ -64,9 +89,45 @@ public class CameraController {
 			}
 		} catch (CameraAccessException e) {
 			e.printStackTrace();
-			logE("execute setupCamera exception!");
+			logE("Execute setupCamera exception!");
 		}
 	}
+
+	private Size getCameraPreviewSize(String carmeraId, int width, int height) {
+		try {
+			CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(carmeraId);
+			StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+			return getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
+		} catch (CameraAccessException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	private Size getOptimalSize(Size[] sizeMap, int width, int height) {
+		List<Size> sizeList = new ArrayList<>();
+		for (Size option : sizeMap) {
+			if (width > height) {
+				if (option.getWidth() > width && option.getHeight() > height) {
+					sizeList.add(option);
+				}
+			} else {
+				if (option.getWidth() > height && option.getHeight() > width) {
+					sizeList.add(option);
+				}
+			}
+		}
+		if (sizeList.size() > 0) {
+			return Collections.min(sizeList, new Comparator<Size>() {
+				@Override
+				public int compare(Size lhs, Size rhs) {
+					return Long.signum(lhs.getWidth() * lhs.getHeight() - rhs.getWidth() * rhs.getHeight());
+				}
+			});
+		}
+		return sizeMap[0];
+	}
+
 
 	public void openFrontCamera(Surface surface) {
 		if (frontCameraId.equals("")) {
@@ -77,27 +138,35 @@ public class CameraController {
 		openCamera(frontCameraId);
 	}
 
-	public void openBackCamera(Surface surface) {
+	public void openBackCamera(SurfaceTexture surfaceTexture, int width, int height) {
 		if (backCameraId.equals("")) {
 			logE("The device is not back camera");
 			return;
 		}
-		this.surface = surface;
+		Size previewSize = getCameraPreviewSize(backCameraId, width, height);
+		if (previewSize == null) {
+			ToastUtil.show("Camera can't surpport the size");
+			return;
+		}
+		surfaceTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+		this.surface = new Surface(surfaceTexture);
+		this.surfaceTexture = surfaceTexture;
 		openCamera(backCameraId);
 	}
 
 	@SuppressLint("MissingPermission")
 	private void openCamera(String cameraId) {
 		try {
-			cameraManager.openCamera(cameraId, stateCallback, null);
+			cameraManager.openCamera(cameraId, openCallback, handler);
 		} catch (CameraAccessException e) {
 			e.printStackTrace();
 		}
 	}
 
-	private CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
+	private CameraDevice.StateCallback openCallback = new CameraDevice.StateCallback() {
 		@Override
 		public void onOpened(@NonNull CameraDevice cameraDevice) {
+			logI("Camera is opened");
 			CameraController.this.cameraDevice = cameraDevice;
 			startPreview();
 		}
@@ -110,6 +179,7 @@ public class CameraController {
 		@Override
 		public void onError(@NonNull CameraDevice cameraDevice, int i) {
 			logE("Camera error!");
+			ToastUtil.show("Camera open fail");
 		}
 	};
 
@@ -123,17 +193,18 @@ public class CameraController {
 			return;
 		}
 		try {
-			cameraDevice.createCaptureSession(Arrays.asList(surface), sessionCreateCallback, null);
+			cameraDevice.createCaptureSession(Arrays.asList(surface), previewSessionCreateCallback, handler);
 		} catch (CameraAccessException e) {
 			e.printStackTrace();
 			logE("Preview session create failed");
 		}
 	}
 
-	private CameraCaptureSession.StateCallback sessionCreateCallback = new CameraCaptureSession.StateCallback() {
+	private CameraCaptureSession.StateCallback previewSessionCreateCallback = new CameraCaptureSession.StateCallback() {
 
 		@Override
 		public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
+			logI("Preview session is created");
 			CaptureRequest.Builder previewBuilder = null;
 			try {
 				previewBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
@@ -142,7 +213,7 @@ public class CameraController {
 			}
 			previewBuilder.addTarget(surface);
 			try {
-				cameraCaptureSession.setRepeatingRequest(previewBuilder.build(), previewCallback, null);
+				cameraCaptureSession.setRepeatingRequest(previewBuilder.build(), previewCallback, handler);
 			} catch (CameraAccessException e) {
 				e.printStackTrace();
 				logE("Preview request failed");
@@ -160,6 +231,7 @@ public class CameraController {
 		@Override
 		public void onCaptureStarted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, long timestamp, long frameNumber) {
 			super.onCaptureStarted(session, request, timestamp, frameNumber);
+//			logI("Camera start preview");
 			captureSession = session;
 		}
 
@@ -200,6 +272,21 @@ public class CameraController {
 
 	private void logI(String string) {
 		Log.i(TAG, string);
+	}
+
+	public synchronized void release() {
+		if (surface != null) {
+			this.surface.release();
+			this.surface = null;
+		}
+		if (captureSession != null) {
+			captureSession.close();
+			captureSession = null;
+		}
+		if (thread != null) {
+			thread.quit();
+			thread = null;
+		}
 	}
 
 }
