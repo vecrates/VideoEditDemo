@@ -1,20 +1,12 @@
 package cn.vecrates.videoeditdemo.activity;
 
-import android.graphics.SurfaceTexture;
-import android.opengl.GLSurfaceView;
 import android.os.Bundle;
-import android.os.Looper;
 import android.util.Log;
-import android.view.Surface;
-
-import javax.microedition.khronos.egl.EGLConfig;
-import javax.microedition.khronos.opengles.GL10;
 
 import androidx.appcompat.app.AppCompatActivity;
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import cn.vecrates.videoeditdemo.MyApplication;
-import cn.vecrates.videoeditdemo.media.camera.CameraController;
+import butterknife.OnClick;
 import cn.vecrates.videoeditdemo.view.CameraView;
 
 public class RecordActivity extends AppCompatActivity {
@@ -27,35 +19,12 @@ public class RecordActivity extends AppCompatActivity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_record);
 		ButterKnife.bind(this);
-		initCamera();
 	}
 
-	private void initCamera() {
-		cameraView.setStateListener(new CameraView.CameraViewStateListener() {
-			@Override
-			public void onSurfaceCreated() {
-				logI("surface created");
-//				runOnUiThread(new Runnable() {
-//					@Override
-//					public void run() {
-						logI(Thread.currentThread().getName());
-						CameraController.getInstance().setupCamera(MyApplication.appContext);
-//					}
-//				});
-			}
 
-			@Override
-			public void onSurfaceChanged(SurfaceTexture surfaceTexture, int width, int height) {
-				logI("surface changed");
-//				runOnUiThread(new Runnable() {
-//					@Override
-//					public void run() {
-				logE("a changed thread=" + Thread.currentThread().getId());
-						CameraController.getInstance().openBackCamera(surfaceTexture, width, height);
-//					}
-//				});
-			}
-		});
+	@OnClick(R.id.btn_takepicture)
+	void clickTakePicture() {
+		cameraView.takePicture();
 	}
 
 	private void logE(String string) {

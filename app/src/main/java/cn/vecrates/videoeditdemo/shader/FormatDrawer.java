@@ -144,5 +144,4 @@ public class FormatDrawer extends BaseDrawer {
 		return shader;
 	}
 
-
 }

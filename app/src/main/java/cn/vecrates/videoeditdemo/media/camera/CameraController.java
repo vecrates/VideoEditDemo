@@ -37,6 +37,11 @@ public class CameraController implements Handler.Callback {
 
 	private final static String TAG = CameraController.class.getSimpleName();
 
+	private final static int OP_UNKNOW = 0;
+	private final static int OP_TAKE_PICTURE = 1;
+	private final static int OP_RECORD_VIDEO = 2;
+	private final static int OP_FOCUS = 3;
+
 	private static class H {
 		private static CameraController instance = new CameraController();
 	}
@@ -52,8 +57,9 @@ public class CameraController implements Handler.Callback {
 	private Surface surface;
 
 	private HandlerThread thread;
-
 	private Handler handler;
+
+	private int operation = OP_UNKNOW;
 
 	private CameraController() {
 	}
@@ -173,13 +179,13 @@ public class CameraController implements Handler.Callback {
 
 		@Override
 		public void onDisconnected(@NonNull CameraDevice cameraDevice) {
-			logI("Camera desconnected!");
+			logI("Camera is desconnected!");
 		}
 
 		@Override
 		public void onError(@NonNull CameraDevice cameraDevice, int i) {
 			logE("Camera error!");
-			ToastUtil.show("Camera open fail");
+			ToastUtil.show("Camera open failed");
 		}
 	};
 
@@ -193,27 +199,24 @@ public class CameraController implements Handler.Callback {
 			return;
 		}
 		try {
-			cameraDevice.createCaptureSession(Arrays.asList(surface), previewSessionCreateCallback, handler);
+			cameraDevice.createCaptureSession(Arrays.asList(surface), captureSessionCreateCallback, handler);
 		} catch (CameraAccessException e) {
 			e.printStackTrace();
 			logE("Preview session create failed");
 		}
 	}
 
-	private CameraCaptureSession.StateCallback previewSessionCreateCallback = new CameraCaptureSession.StateCallback() {
+	private CameraCaptureSession.StateCallback captureSessionCreateCallback = new CameraCaptureSession.StateCallback() {
 
 		@Override
 		public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
 			logI("Preview session is created");
-			CaptureRequest.Builder previewBuilder = null;
+			captureSession = cameraCaptureSession;
 			try {
-				previewBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-			} catch (CameraAccessException e) {
-				e.printStackTrace();
-			}
-			previewBuilder.addTarget(surface);
-			try {
-				cameraCaptureSession.setRepeatingRequest(previewBuilder.build(), previewCallback, handler);
+				CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+				builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+				builder.addTarget(surface);
+				captureSession.setRepeatingRequest(builder.build(), captureCallback, handler);
 			} catch (CameraAccessException e) {
 				e.printStackTrace();
 				logE("Preview request failed");
@@ -226,13 +229,45 @@ public class CameraController implements Handler.Callback {
 		}
 	};
 
+	public void takePicture() {
+		if (cameraDevice == null) {
+			logE("Camera is uninitialized");
+			return;
+		}
+		try {
+			operation = OP_TAKE_PICTURE;
+			CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+			builder.addTarget(surface);
+			captureSession.stopRepeating();
+			captureSession.capture(builder.build(), captureCallback, handler);
+		} catch (CameraAccessException e) {
+			e.printStackTrace();
+			logE("Take picture is failed");
+		}
+	}
 
-	private CameraCaptureSession.CaptureCallback previewCallback = new CameraCaptureSession.CaptureCallback() {
+	private boolean onTakePicture(boolean success) {
+		if (!success) {
+			logE("Take picture is failed");
+			return false;
+		}
+		logI("success!");
+		return true;
+	}
+
+	private void onCaptureCallback(boolean success) {
+		switch (operation) {
+			case OP_TAKE_PICTURE:
+				onTakePicture(success);
+				break;
+		}
+	}
+
+
+	private CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
 		@Override
 		public void onCaptureStarted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, long timestamp, long frameNumber) {
 			super.onCaptureStarted(session, request, timestamp, frameNumber);
-//			logI("Camera start preview");
-			captureSession = session;
 		}
 
 		@Override
@@ -243,11 +278,13 @@ public class CameraController implements Handler.Callback {
 		@Override
 		public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
 			super.onCaptureCompleted(session, request, result);
+			onCaptureCallback(true);
 		}
 
 		@Override
 		public void onCaptureFailed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull CaptureFailure failure) {
 			super.onCaptureFailed(session, request, failure);
+			onCaptureCallback(false);
 		}
 
 		@Override

@@ -10,6 +10,8 @@ import android.util.Log;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import cn.vecrates.videoeditdemo.MyApplication;
+import cn.vecrates.videoeditdemo.media.camera.CameraController;
 import cn.vecrates.videoeditdemo.shader.FormatDrawer;
 import cn.vecrates.videoeditdemo.util.GLUtil;
 
@@ -42,12 +44,12 @@ public class CameraView extends GLSurfaceView implements
 		setEGLContextClientVersion(2);
 		setRenderer(this);
 		setRenderMode(RENDERMODE_WHEN_DIRTY);
-		logE("v init thread=" + Thread.currentThread().getId());
 	}
 
 	@Override
 	public void onSurfaceCreated(GL10 gl10, EGLConfig eglConfig) {
 		createSurfaceTexture();
+		cameraSetup();
 		if (stateListener != null) {
 			stateListener.onSurfaceCreated();
 		}
@@ -65,7 +67,7 @@ public class CameraView extends GLSurfaceView implements
 	@Override
 	public void onSurfaceChanged(GL10 gl10, int width, int height) {
 		GLES20.glViewport(0, 0, width, height);
-		logE("v changed thread=" + Thread.currentThread().getId());
+		cameraOpen(width, height);
 		if (stateListener != null) {
 			stateListener.onSurfaceChanged(surfaceTexture, width, height);
 		}
@@ -85,10 +87,24 @@ public class CameraView extends GLSurfaceView implements
 		requestRender();
 	}
 
+	public void takePicture() {
+		CameraController.getInstance().takePicture();
+	}
+
 	@Override
 	protected void onDetachedFromWindow() {
 		super.onDetachedFromWindow();
+		CameraController.getInstance().release();
 	}
+
+	private void cameraSetup() {
+		CameraController.getInstance().setupCamera(getContext());
+	}
+
+	private void cameraOpen(int width, int height) {
+		CameraController.getInstance().openBackCamera(surfaceTexture, width, height);
+	}
+
 
 	public void setStateListener(CameraViewStateListener listener) {
 		this.stateListener = listener;
