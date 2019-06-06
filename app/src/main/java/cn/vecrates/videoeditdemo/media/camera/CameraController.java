@@ -20,13 +20,11 @@ import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-
 import androidx.annotation.NonNull;
+
+import java.util.Arrays;
+
+import cn.vecrates.videoeditdemo.util.CameraUtil;
 import cn.vecrates.videoeditdemo.util.ToastUtil;
 
 /**
@@ -99,41 +97,16 @@ public class CameraController implements Handler.Callback {
 		}
 	}
 
-	private Size getCameraPreviewSize(String carmeraId, int width, int height) {
+	private Size getCameraPreviewSize(String cameraId, int width, int height) {
 		try {
-			CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(carmeraId);
+			CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraId);
 			StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-			return getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
+			return CameraUtil.getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
 		} catch (CameraAccessException e) {
 			e.printStackTrace();
 		}
 		return null;
 	}
-
-	private Size getOptimalSize(Size[] sizeMap, int width, int height) {
-		List<Size> sizeList = new ArrayList<>();
-		for (Size option : sizeMap) {
-			if (width > height) {
-				if (option.getWidth() > width && option.getHeight() > height) {
-					sizeList.add(option);
-				}
-			} else {
-				if (option.getWidth() > height && option.getHeight() > width) {
-					sizeList.add(option);
-				}
-			}
-		}
-		if (sizeList.size() > 0) {
-			return Collections.min(sizeList, new Comparator<Size>() {
-				@Override
-				public int compare(Size lhs, Size rhs) {
-					return Long.signum(lhs.getWidth() * lhs.getHeight() - rhs.getWidth() * rhs.getHeight());
-				}
-			});
-		}
-		return sizeMap[0];
-	}
-
 
 	public void openFrontCamera(Surface surface) {
 		if (frontCameraId.equals("")) {
@@ -191,11 +164,11 @@ public class CameraController implements Handler.Callback {
 
 	private void startPreview() {
 		if (cameraDevice == null) {
-			logE("Camera open fail, can not to preview");
+			logE("Camera open fail, can not preview");
 			return;
 		}
 		if (surface == null) {
-			logE("SurfaceTexture is null, can not to preview");
+			logE("SurfaceTexture is null, can not preview");
 			return;
 		}
 		try {

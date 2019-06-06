@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.util.Log;
 
 import androidx.appcompat.app.AppCompatActivity;
+
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
@@ -20,7 +21,6 @@ public class RecordActivity extends AppCompatActivity {
 		setContentView(R.layout.activity_record);
 		ButterKnife.bind(this);
 	}
-
 
 	@OnClick(R.id.btn_takepicture)
 	void clickTakePicture() {
