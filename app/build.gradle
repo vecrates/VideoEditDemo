@@ -34,4 +34,5 @@ dependencies {
     annotationProcessor 'com.jakewharton:butterknife-compiler:10.1.0'
     implementation "org.permissionsdispatcher:permissionsdispatcher:4.3.1"
     annotationProcessor "org.permissionsdispatcher:permissionsdispatcher-processor:4.3.1"
+    implementation 'com.github.LuckSiege.PictureSelector:picture_library:v2.2.3'
 }

@@ -1,4 +1,4 @@
-package cn.vecrates.videoeditdemo.shader;
+package cn.vecrates.videoeditdemo.media.shader;
 
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
@@ -10,15 +10,17 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 
+import cn.vecrates.videoeditdemo.util.GLUtil;
+
 /**
  * @author Vecrates.
  * @describe
  */
-public class FormatDrawer extends BaseDrawer {
+public class FormatFilter extends BaseFilter {
 
-	private String vertextShaderCode;
+	private String vertexShaderCode;
 	private String fragmentShaderCode;
-	private int program;
+
 	private FloatBuffer vertexBuffer;
 	private FloatBuffer textureBuffer;
 	private ShortBuffer vertexIndexBuffer;
@@ -47,8 +49,8 @@ public class FormatDrawer extends BaseDrawer {
 
 	private float[] vertexMatrix = new float[16];
 
-	public FormatDrawer() {
-		vertextShaderCode = readShaderFile("format_vs.glsl");
+	public FormatFilter() {
+		vertexShaderCode = readShaderFile("format_vs.glsl");
 		fragmentShaderCode = readShaderFile("format_fs.glsl");
 		initShader();
 		initCoords();
@@ -56,12 +58,12 @@ public class FormatDrawer extends BaseDrawer {
 
 	private void initShader() {
 		program = GLES20.glCreateProgram();
-		int vertextShader = loadShader(GLES20.GL_VERTEX_SHADER, vertextShaderCode);
-		int fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
-		GLES20.glAttachShader(program, vertextShader);
+		int vertexShader = GLUtil.loadShader(GLES20.GL_VERTEX_SHADER, vertexShaderCode);
+		int fragmentShader = GLUtil.loadShader(GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode);
+		GLES20.glAttachShader(program, vertexShader);
 		GLES20.glAttachShader(program, fragmentShader);
 		GLES20.glLinkProgram(program);
-		GLES20.glDeleteShader(vertextShader);
+		GLES20.glDeleteShader(vertexShader);
 		GLES20.glDeleteShader(fragmentShader);
 	}
 
@@ -131,17 +133,8 @@ public class FormatDrawer extends BaseDrawer {
 
 		int code = GLES20.glGetError();
 		if (code != 0) {
-			Log.e("FormatDrawer", "error code=" + code);
+			Log.e("FormatFilter", "error code=" + code);
 		}
 
 	}
-
-
-	private int loadShader(int type, String shaderCode) {
-		int shader = GLES20.glCreateShader(type);
-		GLES20.glShaderSource(shader, shaderCode);
-		GLES20.glCompileShader(shader);
-		return shader;
-	}
-
 }

@@ -8,6 +8,7 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
@@ -20,10 +21,9 @@ import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 
-import androidx.annotation.NonNull;
-
 import java.util.Arrays;
 
+import androidx.annotation.NonNull;
 import cn.vecrates.videoeditdemo.util.CameraUtil;
 import cn.vecrates.videoeditdemo.util.ToastUtil;
 
@@ -35,15 +35,14 @@ public class CameraController implements Handler.Callback {
 
 	private final static String TAG = CameraController.class.getSimpleName();
 
+	private final static long THREHOLD_FOCUS_INTERVAL = 400; //ms
+
 	private final static int OP_UNKNOW = 0;
 	private final static int OP_TAKE_PICTURE = 1;
 	private final static int OP_RECORD_VIDEO = 2;
 	private final static int OP_FOCUS = 3;
 
-	private static class H {
-		private static CameraController instance = new CameraController();
-	}
-
+	private SensorControler sensorControler;
 	private CameraManager cameraManager;
 	private String frontCameraId;
 	private String backCameraId;
@@ -59,11 +58,10 @@ public class CameraController implements Handler.Callback {
 
 	private int operation = OP_UNKNOW;
 
-	private CameraController() {
-	}
+	private long lastFocusTime;
 
-	public static CameraController getInstance() {
-		return H.instance;
+	public CameraController() {
+		initSensor();
 	}
 
 	private void initThread() {
@@ -71,6 +69,22 @@ public class CameraController implements Handler.Callback {
 		thread.start();
 		handler = new Handler(thread.getLooper(), this);
 	}
+
+	private void initSensor() {
+		sensorControler = new SensorControler();
+		sensorControler.setMovedListener(new SensorControler.OnMovedListener() {
+			@Override
+			public void onMoved() {
+				long cur = System.currentTimeMillis();
+				boolean doFocus = cur - lastFocusTime > THREHOLD_FOCUS_INTERVAL;
+				if (doFocus) {
+					doFocus();
+					lastFocusTime = cur;
+				}
+			}
+		});
+	}
+
 
 	@Override
 	public boolean handleMessage(Message message) {
@@ -236,6 +250,22 @@ public class CameraController implements Handler.Callback {
 		}
 	}
 
+	public void doFocus() {
+		if (cameraDevice == null) {
+			logE("Camera is uninitialized");
+			return;
+		}
+		try {
+			operation = OP_FOCUS;
+			CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+			builder.set(CaptureRequest.CONTROL_AF_TRIGGER,
+					CameraMetadata.CONTROL_AF_TRIGGER_START);
+			captureSession.capture(builder.build(), captureCallback, handler);
+		} catch (CameraAccessException e) {
+			e.printStackTrace();
+			logE("doFocus is failed");
+		}
+	}
 
 	private CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
 		@Override
