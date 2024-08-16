@@ -30,7 +30,6 @@ public class MainActivity extends AppCompatActivity {
 		ButterKnife.bind(this);
 	}
 
-
 	@OnClick(R.id.tv_camera)
 	void clickCamera() {
 		MainActivityPermissionsDispatcher.toRecordWithPermissionCheck(this);
@@ -45,26 +44,17 @@ public class MainActivity extends AppCompatActivity {
 		startActivity(intent);
 	}
 
-	@OnClick(R.id.tv_select)
-	void clickSelect() {
-		MainActivityPermissionsDispatcher.toSelectWithPermissionCheck(this);
+	@OnClick(R.id.tv_player)
+	void clickPlayer() {
+		MainActivityPermissionsDispatcher.toPlayerWithPermissionCheck(this);
 	}
 
-	@NeedsPermission({Manifest.permission.WRITE_EXTERNAL_STORAGE,
+	@NeedsPermission({
+			Manifest.permission.WRITE_EXTERNAL_STORAGE,
 			Manifest.permission.READ_EXTERNAL_STORAGE})
-	void toSelect() {
-		PictureSelector.create(this)
-				.openGallery(PictureMimeType.ofVideo())
-				.forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
-
-	}
-
-	@Override
-	protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-		if (resultCode != RESULT_OK) return;
-		List<LocalMedia> selectList = PictureSelector.obtainMultipleResult(data);
-		VideoDrawer videoDrawer = new VideoDrawer(selectList.get(0).getPath());
-		videoDrawer.startDecode();
+	void toPlayer() {
+		Intent intent = new Intent(this, PlayerActivity.class);
+		startActivity(intent);
 	}
 
 	@Override

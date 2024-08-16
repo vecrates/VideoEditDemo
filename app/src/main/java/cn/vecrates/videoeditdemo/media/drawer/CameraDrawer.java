@@ -13,8 +13,8 @@ import javax.microedition.khronos.opengles.GL10;
 
 import cn.vecrates.videoeditdemo.media.muxer.CameraMuxer;
 import cn.vecrates.videoeditdemo.media.shader.FormatFilter;
-import cn.vecrates.videoeditdemo.media.view.CameraView;
 import cn.vecrates.videoeditdemo.util.GLUtil;
+import cn.vecrates.videoeditdemo.view.CameraView;
 
 /**
  * @author weiyusong

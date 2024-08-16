@@ -1,4 +1,4 @@
-package cn.vecrates.videoeditdemo.media.view;
+package cn.vecrates.videoeditdemo.view;
 
 import android.content.Context;
 import android.graphics.Bitmap;

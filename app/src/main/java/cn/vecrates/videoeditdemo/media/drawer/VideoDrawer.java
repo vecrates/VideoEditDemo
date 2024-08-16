@@ -1,25 +1,16 @@
 package cn.vecrates.videoeditdemo.media.drawer;
 
-import android.graphics.Canvas;
-import android.graphics.PorterDuff;
 import android.graphics.SurfaceTexture;
-import android.media.MediaCodec;
+import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Message;
 import android.util.Log;
-import android.view.Surface;
-import android.view.View;
+import android.view.SurfaceHolder;
+import android.view.TextureView;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-
-import cn.vecrates.videoeditdemo.media.MediaType;
-import cn.vecrates.videoeditdemo.media.decoder.BaseDecoder;
+import cn.vecrates.videoeditdemo.media.decoder.VideoDecoder;
 import cn.vecrates.videoeditdemo.media.egl.EglCore;
-import cn.vecrates.videoeditdemo.media.egl.WindowSurface;
 import cn.vecrates.videoeditdemo.media.shader.FormatFilter;
 import cn.vecrates.videoeditdemo.util.GLUtil;
 
@@ -27,272 +18,198 @@ import cn.vecrates.videoeditdemo.util.GLUtil;
  * @author weiyusong
  * @description
  */
-public class VideoDrawer implements BaseDecoder.DecodeCallback, SurfaceTexture.OnFrameAvailableListener {
+public class VideoDrawer implements SurfaceTexture.OnFrameAvailableListener {
 
-	private final static String TAG = VideoDrawer.class.getSimpleName();
+    private final static String TAG = VideoDrawer.class.getSimpleName();
 
-	private WindowSurface mInputWindowSurface;
-	private EglCore mEglCore;
-	private int mTextureId = -1;
-	private SurfaceTexture surfaceTexture;
-	private FormatFilter formatFilter;
+    private TextureView previewSurfaceView;
 
-	private View overLayer;
-	private int overTextureId = -1;
-	private SurfaceTexture overSurfaceTexture;
-	private Surface overSurface;
+    private EglCore mEglCore;
+    private EGLSurface previewSurface;
+    private EGLSurface offscreenSurface;
+    private int mTextureId = -1;
+    private FormatFilter formatFilter;
 
-	private BaseDecoder decoder;
+    private VideoDecoder decoder;
 
-	private HandlerThread thread;
-	private Handler handler;
+    private HandlerThread thread;
+    private Handler handler;
 
-	public VideoDrawer(String videoPath) {
-		initThread();
-		initGLContext();
-		createTexture();
-		createDecoder(videoPath);
-	}
+    public VideoDrawer(TextureView previewSurfaceView) {
+        this.previewSurfaceView = previewSurfaceView;
+        this.previewSurfaceView.setSurfaceTextureListener(surfaceTextureListener);
+        this.previewSurfaceView.setOpaque(false);
 
-	private void initThread() {
-		thread = new HandlerThread("VideoDrawerThread");
-		thread.start();
-		handler = new Handler(thread.getLooper(), new Handler.Callback() {
-			@Override
-			public boolean handleMessage(Message msg) {
-				return true;
-			}
-		});
-	}
+        initThread();
+        initGLContext();
+        initRender();
+    }
 
-	private void createDecoder(String videoPath) {
-		post(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					decoder = new BaseDecoder(MediaType.VIDEO, videoPath);
-					decoder.setCallback(VideoDrawer.this);
-					decoder.configCodec(mTextureId, VideoDrawer.this);
-				} catch (Exception e) {
-					e.printStackTrace();
-					logE("createDecoder error");
-				}
-			}
-		});
-	}
+    private void initThread() {
+        thread = new HandlerThread("VideoDrawerThread");
+        thread.start();
+        handler = new Handler(thread.getLooper());
+    }
 
-	private void createEncoder() {
-		post(new Runnable() {
-			@Override
-			public void run() {
-//                String path = FileManager.getNewMp4Path();
-			}
-		});
+    public void createDecoder(String videoPath) {
+        post(() -> {
+            try {
+                decoder = new VideoDecoder(videoPath);
+                decoder.configCodec(mTextureId, this);
+            } catch (Exception e) {
+                Log.e(TAG, "createDecoder: ", e);
+            }
+        });
+    }
 
-	}
+    private void initGLContext() {
+        post(() -> {
+            mEglCore = new EglCore(null, EglCore.FLAG_RECORDABLE);
+            offscreenSurface = mEglCore.createOffscreenSurface(2, 2);
+            mEglCore.makeCurrent(offscreenSurface);
+        });
+    }
 
-	private void initGLContext() {
-		post(new Runnable() {
-			@Override
-			public void run() {
-				mEglCore = new EglCore(null, EglCore.FLAG_RECORDABLE);
-				SurfaceTexture temp = new SurfaceTexture(0);
-				mInputWindowSurface = new WindowSurface(mEglCore, temp);
-				mInputWindowSurface.makeCurrent();
-			}
-		});
-	}
+    private void initRender() {
+        post(() -> {
+            mTextureId = GLUtil.genOESTexture();
+            formatFilter = new FormatFilter();
+        });
+    }
 
-	private void createTexture() {
-		post(new Runnable() {
-			@Override
-			public void run() {
-				mTextureId = GLUtil.genOESTexture();
-				Log.i(TAG, "run: textureId=" + mTextureId);
-				surfaceTexture = new SurfaceTexture(mTextureId);
-				formatFilter = new FormatFilter();
-			}
-		});
-	}
+    private final TextureView.SurfaceTextureListener surfaceTextureListener = new TextureView.SurfaceTextureListener() {
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+            post(() -> {
+                previewSurface = mEglCore.createWindowSurface(surface);
+                mEglCore.makeCurrent(previewSurface);
+            });
+        }
 
-	private void createOverlayTexture() {
-		post(new Runnable() {
-			@Override
-			public void run() {
-				overTextureId = GLUtil.genOESTexture();
-				overSurfaceTexture = new SurfaceTexture(overTextureId);
-				overSurfaceTexture.setDefaultBufferSize(decoder.getVideoWidth(), decoder.getVideoHeight());
-				overSurface = new Surface(overSurfaceTexture);
-			}
-		});
-	}
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
 
-	public void setOverLayer(View overLayer) {
-		this.overLayer = overLayer;
-		createOverlayTexture();
-	}
+        }
 
-	@Override
-	public boolean onFrameDecoded(BaseDecoder decoder, ByteBuffer outputBuffer, MediaCodec.BufferInfo bufferInfo) {
-		logE("====");
-		return false;
-	}
+        @Override
+        public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+            post(() -> {
+                mEglCore.releaseSurface(previewSurface);
+                previewSurface = null;
+            });
+            return true;
+        }
 
-	public void startDecode() {
-		post(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					logI("startDecode");
-					decoder.startDecode();
-				} catch (Exception e) {
-					e.printStackTrace();
-					logE("startDecode error");
-				}
-			}
-		});
-	}
+        @Override
+        public void onSurfaceTextureUpdated(SurfaceTexture surface) {
 
-	private final List<Long> timestamps = new ArrayList<>();
+        }
+    };
 
-	private void doDecode() {
-//        decoder.startDecode();
-//        int index;
-//        boolean hasError = false;
-//        int tryTimes = 0;
-//        long totalDecodeOffset = 0;
-//        long totalDecodeTime = 0;
-//        long globalDecodeTime = 0;
-//        long globalDecodeOffset = decoder.getCurDecodeTime();
-//        while (globalDecodeOffset + 2 < decoder.getDuration() && !decoder.isOutputEOS()) {
-//            logE("===1 gt=" + globalDecodeOffset);
-//            if (timestamps.size() > 0) {
-//                try {
-//                    Thread.sleep(5);
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//                if (tryTimes++ > 200) {
-//                    index = timestamps.size() - 1;
-//                    index = index > 0 ? index : 0;
-//                    if (index < timestamps.size() && index >= 0) {
-//                        timestamps.remove(index);
-//                    }
-//                    tryTimes = 0;
-//                }
-//            } else {
-//                tryTimes = 0;
-//                boolean b;
-//                try {
-//                    b = decoder.decodeNextPacket(decoder.getCurDecodeTime() + 2);
-//                } catch (IllegalStateException e) {
-//                    hasError = true;
-//                    break;
-//                }
-//                globalDecodeOffset = decoder.getCurDecodeTime();
-//                globalDecodeTime = globalDecodeOffset;
-//                if (b && globalDecodeOffset >= 0) {
-//                    totalDecodeTime = totalDecodeOffset + globalDecodeTime;
-//                }
-//            }
-//        }
-//
-//        while (totalDecodeTime < decoder.getDuration()) {
-//            totalDecodeTime += 2;
-//            synchronized (timestamps) {
-//                timestamps.add(totalDecodeTime);
-//            }
-//            final CountDownLatch countDownLatch = new CountDownLatch(1);
-//            handler.post(new Runnable() {
-//                @Override
-//                public void run() {
-//                    draw();
-//                    countDownLatch.countDown();
-//                }
-//            });
-//            try {
-//                countDownLatch.await();
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        }
-	}
+    private final SurfaceHolder.Callback surfaceCallback = new SurfaceHolder.Callback() {
 
-	private void draw() {
+        @Override
+        public void surfaceCreated(SurfaceHolder holder) {
+            post(() -> {
+                previewSurface = mEglCore.createWindowSurface(holder.getSurface());
+                mEglCore.makeCurrent(previewSurface);
+            });
+        }
 
-		formatFilter.draw(mTextureId);
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+            Log.d(TAG, "surfaceChanged: " + width + " " + height);
+        }
 
-		if (overLayer != null) {
-			Canvas canvas = null;
-			try {
-				canvas = overSurface.lockCanvas(null);
-			} catch (IllegalArgumentException e) {
-				return;
-			}
-			canvas.drawColor(0, PorterDuff.Mode.CLEAR);
-			overLayer.draw(canvas);
-			overSurface.unlockCanvasAndPost(canvas);
-		}
-	}
+        @Override
+        public void surfaceDestroyed(SurfaceHolder holder) {
+            post(() -> {
+                mEglCore.releaseSurface(previewSurface);
+                previewSurface = null;
+            });
+        }
+    };
 
-	@Override
-	public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-		logE("onFrameAvailable");
-		surfaceTexture.updateTexImage();
-	}
+    public void start() {
+        post(() -> {
+            try {
+                new Thread(() -> {
+                    decoder.startDecode();
+                }).start();
+            } catch (Exception e) {
+                Log.e(TAG, "startDecode: ", e);
+            }
+        });
+    }
 
-	public void release() {
+    private void draw() {
 
-		if (decoder != null) {
-			decoder.release();
-			decoder = null;
-		}
+        Log.d(TAG, "draw: >>>>>><<<<<<<");
+        GLES20.glViewport(0, 0, previewSurfaceView.getWidth(), previewSurfaceView.getHeight());
 
-		if (mInputWindowSurface != null) {
-			mInputWindowSurface.release();
-			mInputWindowSurface = null;
-		}
+        formatFilter.draw(mTextureId);
 
-		if (overSurface != null) {
-			overSurface.release();
-			overSurface = null;
-		}
+        Log.e(TAG, "draw: " + previewSurfaceView.isOpaque());
 
-		if (mTextureId != -1) {
-			GLES20.glDeleteTextures(1, new int[]{mTextureId}, 0);
-			mTextureId = -1;
-		}
+    }
 
-		if (overTextureId != -1) {
-			GLES20.glDeleteTextures(1, new int[]{overTextureId}, 0);
-			overTextureId = -1;
-		}
+    @Override
+    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+        surfaceTexture.updateTexImage();
+        draw();
+        if (mEglCore != null && previewSurface != null) {
+            mEglCore.swapBuffers(previewSurface);
+        }
+    }
 
-		if (thread != null) {
-			thread.quit();
-			thread = null;
-		}
+    public void releaseDecoder() {
+        post(() -> {
+            if (decoder != null) {
+                decoder.stopDecode();
+                decoder.release();
+                decoder = null;
+            }
+        });
+    }
 
+    public void release() {
 
-	}
+        if (decoder != null) {
+            decoder.stopDecode();
+            decoder.release();
+            decoder = null;
+        }
 
-	public void post(Runnable runnable) {
-		handler.post(runnable);
-	}
+        if (previewSurface != null && mEglCore != null) {
+            mEglCore.releaseSurface(previewSurface);
+            previewSurface = null;
+        }
 
-	public interface VideoDecodeListener {
+        if (offscreenSurface != null && mEglCore != null) {
+            mEglCore.releaseSurface(offscreenSurface);
+            offscreenSurface = null;
+        }
 
-		void onDecoding();
+        if (mTextureId != -1) {
+            GLES20.glDeleteTextures(1, new int[]{mTextureId}, 0);
+            mTextureId = -1;
+        }
 
-		void onDecodeFail();
-	}
+        if (mEglCore != null) {
+            mEglCore.release();
+            mEglCore = null;
+        }
 
-	private void logE(String string) {
-		Log.e(TAG, string);
-	}
+        if (thread != null) {
+            thread.quit();
+            thread = null;
+        }
 
-	private void logI(String string) {
-		Log.i(TAG, string);
-	}
+    }
+
+    public void post(Runnable runnable) {
+        handler.post(runnable);
+    }
+
 
 }

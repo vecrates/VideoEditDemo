@@ -101,8 +101,8 @@ public class FormatFilter extends BaseFilter {
 	}
 
 	public void draw(int texture) {
-		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-		GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		GLES20.glClearColor(0.f, 0.f, 0.f, 0.f);
+		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
 		//激活这个程序,在glUseProgram函数调用之后，每个着色器调用和渲染调用都会使用这个程序对象
 		GLES20.glUseProgram(program);
@@ -135,6 +135,7 @@ public class FormatFilter extends BaseFilter {
 		if (code != 0) {
 			Log.e("FormatFilter", "error code=" + code);
 		}
-
 	}
+
+
 }

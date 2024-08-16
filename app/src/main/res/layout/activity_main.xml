@@ -20,7 +20,7 @@
         android:text="拍照"/>
 
     <TextView
-        android:id="@+id/tv_select"
+        android:id="@+id/tv_player"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:paddingLeft="20dp"
@@ -31,6 +31,6 @@
         android:background="#FF9800"
         android:textColor="#fff"
         android:textSize="20sp"
-        android:text="选择"/>
+        android:text="播放"/>
 
 </LinearLayout>

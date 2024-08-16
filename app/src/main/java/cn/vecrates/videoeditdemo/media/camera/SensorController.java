@@ -8,20 +8,20 @@ import android.hardware.SensorManager;
 
 import cn.vecrates.videoeditdemo.MyApplication;
 
-public class SensorControler implements SensorEventListener {
+public class SensorController implements SensorEventListener {
 
-    private static final String TAG = SensorControler.class.getSimpleName();
+    private static final String TAG = SensorController.class.getSimpleName();
 
-    private static final float THREHOLD_MOVE = 0.8f;
+    private static final float THRESHOLD_MOVE = 0.8f;
 
-    private SensorManager sensorManager;
-    private Sensor sensor;
+    private final SensorManager sensorManager;
+    private final Sensor sensor;
 
     private OnMovedListener listener;
 
     private float lastX, lastY, lastZ;
 
-    public SensorControler() {
+    public SensorController() {
         sensorManager = (SensorManager) MyApplication.appContext.getSystemService(Activity.SENSOR_SERVICE);
         sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
     }
@@ -43,9 +43,9 @@ public class SensorControler implements SensorEventListener {
         float x = event.values[0];
         float y = event.values[1];
         float z = event.values[2];
-        if (Math.abs(lastX - x) >= THREHOLD_MOVE ||
-                Math.abs(lastY - y) >= THREHOLD_MOVE ||
-                Math.abs(lastZ - z) >= THREHOLD_MOVE) {
+        if (Math.abs(lastX - x) >= THRESHOLD_MOVE ||
+                Math.abs(lastY - y) >= THRESHOLD_MOVE ||
+                Math.abs(lastZ - z) >= THRESHOLD_MOVE) {
             if (listener != null) {
                 listener.onMoved();
             }

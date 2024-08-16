@@ -33,5 +33,11 @@
             android:name=".RecordActivity"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustPan|stateHidden"/>
+
+        <activity
+            android:name=".PlayerActivity"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustPan|stateHidden"/>
+
     </application>
 </manifest>

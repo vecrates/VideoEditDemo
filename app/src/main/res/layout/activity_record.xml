@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <cn.vecrates.videoeditdemo.media.view.CameraView
+    <cn.vecrates.videoeditdemo.view.CameraView
         android:id="@+id/sv_preview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>

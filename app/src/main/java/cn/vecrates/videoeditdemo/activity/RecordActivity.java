@@ -10,9 +10,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
-import cn.vecrates.videoeditdemo.media.view.CameraView;
 import cn.vecrates.videoeditdemo.util.FileUtil;
 import cn.vecrates.videoeditdemo.util.ToastUtil;
+import cn.vecrates.videoeditdemo.view.CameraView;
 
 public class RecordActivity extends AppCompatActivity {
 

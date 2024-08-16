@@ -42,7 +42,7 @@ public class CameraController implements Handler.Callback {
 	private final static int OP_RECORD_VIDEO = 2;
 	private final static int OP_FOCUS = 3;
 
-	private SensorControler sensorControler;
+	private SensorController sensorControler;
 	private CameraManager cameraManager;
 	private String frontCameraId;
 	private String backCameraId;
@@ -71,8 +71,8 @@ public class CameraController implements Handler.Callback {
 	}
 
 	private void initSensor() {
-		sensorControler = new SensorControler();
-		sensorControler.setMovedListener(new SensorControler.OnMovedListener() {
+		sensorControler = new SensorController();
+		sensorControler.setMovedListener(new SensorController.OnMovedListener() {
 			@Override
 			public void onMoved() {
 				long cur = System.currentTimeMillis();
